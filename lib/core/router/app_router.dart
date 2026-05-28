@@ -9,6 +9,8 @@ import '../../screens/auth/splash_screen.dart';
 import '../../screens/auth/welcome_screen.dart';
 import '../../screens/chat/chat_screen.dart';
 import '../../screens/community/community_screen.dart';
+import '../../models/news_share_article.dart';
+import '../../models/tea_item.dart';
 import '../../screens/community/tea_feed_screen.dart';
 import '../../screens/community/watchlist_screen.dart';
 import '../../screens/dashboard/dashboard_screen.dart';
@@ -106,15 +108,61 @@ GoRouter createAppRouter() {
       ),
       GoRoute(
         path: '/share-suggestions',
-        builder: (_, __) => const ShareSuggestionsScreen(),
+        builder: (context, state) {
+          String? reflection;
+          NewsShareArticle? news;
+          final extra = state.extra;
+          if (extra is Map) {
+            if (extra['reflection'] is String) {
+              reflection = extra['reflection'] as String;
+            }
+            if (extra['newsArticle'] is Map) {
+              news = NewsShareArticle.fromMap(
+                Map<String, dynamic>.from(extra['newsArticle'] as Map),
+              );
+            }
+          }
+          return ShareSuggestionsScreen(
+            initialReflection: reflection,
+            newsArticle: news,
+          );
+        },
       ),
-      GoRoute(path: '/tea-feed', builder: (_, __) => const TeaFeedScreen()),
+      GoRoute(
+        path: '/tea-feed',
+        builder: (context, state) {
+          List<TeaItem>? items;
+          var returnTo = '/dashboard';
+          final extra = state.extra;
+          if (extra is Map) {
+            final raw = extra['teaItems'];
+            if (raw is List<TeaItem>) {
+              items = raw;
+            } else if (raw is List) {
+              items = raw.whereType<TeaItem>().toList();
+            }
+            final rt = extra['returnTo'];
+            if (rt is String && rt.startsWith('/')) returnTo = rt;
+          }
+          return TeaFeedScreen(initialItems: items, returnTo: returnTo);
+        },
+      ),
       GoRoute(
         path: '/help-improve-deite',
         builder: (_, __) => const HelpImproveScreen(),
       ),
       GoRoute(path: '/watchlist', builder: (_, __) => const WatchlistScreen()),
-      GoRoute(path: '/chat', builder: (_, __) => const ChatScreen()),
+      GoRoute(
+        path: '/chat',
+        builder: (context, state) {
+          final q = state.uri.queryParameters;
+          return ChatScreen(
+            dateId: q['dateId'],
+            isWhisperMode: q['whisper'] == '1' || q['whisper'] == 'true',
+            isFreshSession: q['fresh'] == '1' || q['fresh'] == 'true',
+          );
+        },
+      ),
       GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
       GoRoute(
         path: '/user/:userId',

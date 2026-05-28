@@ -1,5 +1,11 @@
+import 'dart:typed_data';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/theme/hub_colors.dart';
 import '../../services/auth_service.dart';
@@ -15,7 +21,10 @@ class CommunityScreen extends StatefulWidget {
 class _CommunityScreenState extends State<CommunityScreen> {
   List<Map<String, dynamic>> _posts = [];
   bool _loading = true;
+  bool _posting = false;
   final _composer = TextEditingController();
+  Uint8List? _pendingImage;
+  final _picker = ImagePicker();
 
   @override
   void initState() {
@@ -24,7 +33,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _load() async {
-    final posts = await firestoreService.getCommunityPosts();
+    setState(() => _loading = true);
+    final posts = await firestoreService.getCommunityPosts(limit: 40);
     if (mounted) {
       setState(() {
         _posts = posts;
@@ -33,17 +43,70 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
+  Future<void> _pickImage() async {
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+    final raw = await file.readAsBytes();
+    final compressed = await FlutterImageCompress.compressWithList(
+      raw,
+      quality: 75,
+      minWidth: 1080,
+    );
+    setState(() => _pendingImage = compressed);
+  }
+
   Future<void> _post() async {
     final user = authService.currentUser;
     final text = _composer.text.trim();
-    if (user == null || text.isEmpty) return;
+    if (user == null || (text.isEmpty && _pendingImage == null)) return;
+    setState(() => _posting = true);
+    String? imageUrl;
+    if (_pendingImage != null) {
+      imageUrl = await firestoreService.uploadPostImageBytes(
+        user.uid,
+        _pendingImage!,
+      );
+    }
     await firestoreService.createCommunityPost(
       authorId: user.uid,
-      text: text,
+      text: text.isEmpty ? '📷' : text,
+      imageUrl: imageUrl,
       displayName: user.displayName,
     );
     _composer.clear();
+    setState(() {
+      _pendingImage = null;
+      _posting = false;
+    });
     await _load();
+  }
+
+  Future<void> _like(String postId, int index) async {
+    final ok = await firestoreService.incrementCommunityPostLike(postId);
+    if (ok && mounted) {
+      setState(() {
+        final likes = (_posts[index]['likes'] as int? ?? 0) + 1;
+        _posts[index] = {..._posts[index], 'likes': likes};
+      });
+    }
+  }
+
+  String _timeAgo(dynamic ts) {
+    if (ts == null) return '';
+    DateTime? dt;
+    if (ts is DateTime) {
+      dt = ts;
+    } else {
+      try {
+        dt = (ts as dynamic).toDate() as DateTime?;
+      } catch (_) {}
+    }
+    if (dt == null) return '';
+    return DateFormat.MMMd().add_jm().format(dt);
   }
 
   @override
@@ -67,7 +130,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.local_cafe_outlined),
-            onPressed: () => context.push('/tea-feed'),
+            onPressed: () => context.push(
+              '/tea-feed',
+              extra: {'returnTo': '/community'},
+            ),
           ),
         ],
       ),
@@ -75,26 +141,63 @@ class _CommunityScreenState extends State<CommunityScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _composer,
-                    style: const TextStyle(color: HubColors.text),
-                    decoration: InputDecoration(
-                      hintText: 'Share with the community...',
-                      filled: true,
-                      fillColor: HubColors.bgSecondary,
-                      border: OutlineInputBorder(
+                if (_pendingImage != null)
+                  Stack(
+                    children: [
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
+                        child: Image.memory(
+                          _pendingImage!,
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 4,
+                        top: 4,
+                        child: IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => setState(() => _pendingImage = null),
+                        ),
+                      ),
+                    ],
+                  ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.image_outlined,
+                          color: HubColors.accent),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _composer,
+                        style: const TextStyle(color: HubColors.text),
+                        decoration: InputDecoration(
+                          hintText: 'Share with the community...',
+                          filled: true,
+                          fillColor: HubColors.bgSecondary,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                IconButton(
-                  onPressed: _post,
-                  icon: const Icon(Icons.send, color: HubColors.accent),
+                    IconButton(
+                      onPressed: _posting ? null : _post,
+                      icon: _posting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send, color: HubColors.accent),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -114,27 +217,117 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     : RefreshIndicator(
                         onRefresh: _load,
                         child: ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           itemCount: _posts.length,
                           itemBuilder: (_, i) {
                             final p = _posts[i];
                             final authorId = p['authorId'] as String? ?? '';
-                            return ListTile(
-                              title: Text(
-                                p['authorName'] as String? ?? 'User',
-                                style: const TextStyle(
-                                  color: HubColors.accent,
-                                  fontWeight: FontWeight.w600,
+                            final imageUrl = p['image_url'] as String? ??
+                                p['image'] as String?;
+                            final likes = p['likes'] as int? ?? 0;
+                            return Card(
+                              color: HubColors.bgSecondary,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: authorId.isNotEmpty
+                                          ? () => context.push('/user/$authorId')
+                                          : null,
+                                      child: Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 18,
+                                            backgroundColor: HubColors.accent,
+                                            child: Text(
+                                              (p['authorName'] as String? ?? 'U')
+                                                  .substring(0, 1)
+                                                  .toUpperCase(),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  p['authorName'] as String? ??
+                                                      'User',
+                                                  style: const TextStyle(
+                                                    color: HubColors.text,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  _timeAgo(p['createdAt']),
+                                                  style: const TextStyle(
+                                                    color: HubColors.textSecondary,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      p['text_content'] as String? ??
+                                          p['content'] as String? ??
+                                          '',
+                                      style: const TextStyle(
+                                        color: HubColors.text,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    if (imageUrl != null &&
+                                        imageUrl.isNotEmpty) ...[
+                                      const SizedBox(height: 10),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: CachedNetworkImage(
+                                          imageUrl: imageUrl,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (_, __, ___) =>
+                                              const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.favorite_border,
+                                            color: HubColors.textSecondary,
+                                            size: 20,
+                                          ),
+                                          onPressed: () => _like(
+                                            p['id'] as String,
+                                            i,
+                                          ),
+                                        ),
+                                        Text(
+                                          '$likes',
+                                          style: const TextStyle(
+                                            color: HubColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              subtitle: Text(
-                                p['text_content'] as String? ??
-                                    p['content'] as String? ??
-                                    '',
-                                style: const TextStyle(color: HubColors.text),
-                              ),
-                              onTap: authorId.isNotEmpty
-                                  ? () => context.push('/user/$authorId')
-                                  : null,
                             );
                           },
                         ),

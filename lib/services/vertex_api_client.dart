@@ -55,6 +55,29 @@ class VertexApiClient {
     }
     return result;
   }
+
+  Future<String> generateContent({
+    required String prompt,
+    double temperature = 0.65,
+    int maxOutputTokens = 2048,
+  }) async {
+    final data = await _client.fetchJson(
+      '/generateContent',
+      body: {
+        'prompt': prompt,
+        'temperature': temperature,
+        'maxOutputTokens': maxOutputTokens,
+      },
+    );
+    if (data['candidates'] != null) {
+      final parts = data['candidates'][0]?['content']?['parts'] as List?;
+      if (parts != null) {
+        return parts.map((p) => (p as Map)['text'] ?? '').join();
+      }
+    }
+    if (data['text'] is String) return data['text'] as String;
+    throw Exception('Unexpected /generateContent response');
+  }
 }
 
 final vertexApiClient = VertexApiClient();

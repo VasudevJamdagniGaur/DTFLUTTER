@@ -11,8 +11,28 @@ Flutter port of [VasudevJamdagniGaur/SocialMedia](https://github.com/VasudevJamd
 | Vertex AI backend (`/chat`, `/reflection`) | ✅ |
 | Navigation (27 routes + bottom tabs) | ✅ |
 | Dashboard, Chat, Community, Wellbeing, Pod | ✅ Functional |
-| Pod topic feeds, Tea, LinkedIn share AI | 🔲 Stubs / next phase |
+| Pod topic feeds (Google News RSS + Firestore `news`) | ✅ |
+| Crew group chat (Firestore real-time) | ✅ |
+| Wellbeing charts (Firestore mood/balance) | ✅ |
+| Community likes + richer posts | ✅ |
+| Tea watchlist (SharedPreferences) | ✅ |
+| Share suggestions (Vertex AI) | ✅ |
+| Android back navigation | ✅ |
+| Reddit Tea feed (`r/BollyBlindsNGossip`) + vertical feed | ✅ |
+| Community post image upload (compressed → Storage) | ✅ |
+| Profile photo upload | ✅ |
+| Help improve via WhatsApp | ✅ |
+| Social share tracking (`socialShares`) | ✅ |
+| Chat on Firestore `days/{dateId}/messages` (web-compatible) | ✅ |
+| Whisper sessions + delete on leave | ✅ |
+| Auto reflection + mood chart after chat | ✅ |
+| Share suggestions (5 styles × 3 platforms) | ✅ |
+| News/article share mode + cached AI posts | ✅ |
+| Tweet-style X card + screenshot share | ✅ |
+| Chat image attach (picker → Storage → messages) | ✅ |
 | `firestoreService.js` full surface (~2800 lines) | 🔲 Incremental |
+
+See [PLATFORM_SETUP.md](PLATFORM_SETUP.md) for `flutter create` + Android/iOS.
 
 ## Prerequisites
 

@@ -5,6 +5,8 @@ class ChatMessage {
     required this.text,
     this.isWhisperSession = false,
     this.timestamp,
+    this.image,
+    this.imageUrl,
   });
 
   final String? id;
@@ -12,6 +14,8 @@ class ChatMessage {
   final String text;
   final bool isWhisperSession;
   final DateTime? timestamp;
+  final String? image;
+  final String? imageUrl;
 
   factory ChatMessage.fromMap(Map<String, dynamic> map, {String? id}) {
     DateTime? ts;
@@ -33,6 +37,8 @@ class ChatMessage {
       text: map['text'] as String? ?? '',
       isWhisperSession: map['isWhisperSession'] == true,
       timestamp: ts ?? map['timestamp'] as DateTime?,
+      image: map['image'] as String?,
+      imageUrl: map['imageUrl'] as String?,
     );
   }
 
@@ -40,5 +46,7 @@ class ChatMessage {
         'sender': sender,
         'text': text,
         'isWhisperSession': isWhisperSession,
+        if (image != null) 'image': image,
+        if (imageUrl != null) 'imageUrl': imageUrl,
       };
 }

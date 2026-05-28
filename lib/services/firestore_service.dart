@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/chat_message.dart';
+import '../models/crew_message.dart';
+import '../models/mood_day_data.dart';
 
 /// Core Firestore operations ported from `firestoreService.js`.
 class FirestoreService {
@@ -186,6 +188,124 @@ class FirestoreService {
             }).toList());
   }
 
+  /// Primary chat path — mirrors `saveChatMessageNew` (users/.../days/.../messages).
+  Future<String?> saveChatMessageNew(
+    String uid,
+    String dateId, {
+    required String sender,
+    required String text,
+    bool isWhisperSession = false,
+    String? imageDataUrl,
+    String? imageUrl,
+  }) async {
+    try {
+      final role = sender == 'user' ? 'user' : 'assistant';
+      final doc = <String, dynamic>{
+        'role': role,
+        'text': text,
+        'ts': FieldValue.serverTimestamp(),
+        'isWhisperSession': isWhisperSession,
+      };
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        doc['imageUrl'] = imageUrl;
+      } else if (imageDataUrl != null && imageDataUrl.length < 750000) {
+        doc['image'] = imageDataUrl;
+      }
+      final ref =
+          await _db.collection('users/$uid/days/$dateId/messages').add(doc);
+      await _db.doc('users/$uid/days/$dateId').set({
+        'date': dateId,
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'messageCount': FieldValue.increment(1),
+      }, SetOptions(merge: true));
+      return ref.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<ChatMessage>> getChatMessagesNew(String uid, String dateId) async {
+    try {
+      final snap = await _db
+          .collection('users/$uid/days/$dateId/messages')
+          .orderBy('ts')
+          .get();
+      return snap.docs.map((d) {
+        final data = d.data();
+        DateTime? ts;
+        final raw = data['ts'];
+        if (raw is Timestamp) ts = raw.toDate();
+        final sender = data['role'] == 'user' ? 'user' : 'ai';
+        return ChatMessage.fromMap({
+          'sender': sender,
+          'text': data['text'],
+          'isWhisperSession': data['isWhisperSession'] == true,
+          if (data['image'] != null) 'image': data['image'],
+          if (data['imageUrl'] != null) 'imageUrl': data['imageUrl'],
+          'timestamp': ts,
+        }, id: d.id);
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Stream<List<ChatMessage>> watchChatMessagesNew(String uid, String dateId) {
+    return _db
+        .collection('users/$uid/days/$dateId/messages')
+        .orderBy('ts')
+        .snapshots()
+        .map((snap) => snap.docs.map((d) {
+              final data = d.data();
+              DateTime? ts;
+              final raw = data['ts'];
+              if (raw is Timestamp) ts = raw.toDate();
+              final sender = data['role'] == 'user' ? 'user' : 'ai';
+              return ChatMessage.fromMap({
+                'sender': sender,
+                'text': data['text'],
+                'isWhisperSession': data['isWhisperSession'] == true,
+                if (data['image'] != null) 'image': data['image'],
+                if (data['imageUrl'] != null) 'imageUrl': data['imageUrl'],
+                'timestamp': ts,
+              }, id: d.id);
+            }).toList());
+  }
+
+  Future<int> deleteWhisperSessionMessages(String uid, String dateId) async {
+    try {
+      final snap = await _db
+          .collection('users/$uid/days/$dateId/messages')
+          .where('isWhisperSession', isEqualTo: true)
+          .get();
+      final batch = _db.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      return snap.docs.length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> saveMoodChartNew(
+    String uid,
+    String dateId, {
+    required double happiness,
+    required double anxiety,
+    required double stress,
+    required double energy,
+  }) async {
+    await _db.doc('users/$uid/days/$dateId/moodChart/daily').set({
+      'happiness': happiness,
+      'anxiety': anxiety,
+      'stress': stress,
+      'energy': energy,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<List<Map<String, dynamic>>> getRecentChatDays(
     String uid, {
     int limit = 14,
@@ -295,6 +415,300 @@ class FirestoreService {
     }
   }
 
+  Future<String?> uploadPostImageBytes(
+    String uid,
+    Uint8List bytes, {
+    String ext = 'jpg',
+  }) async {
+    try {
+      final path =
+          'posts/$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      final ref = _storage.ref().child(path);
+      await ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/$ext'),
+      );
+      return await ref.getDownloadURL();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<ServiceResult> saveSocialShare(
+    String uid, {
+    required String platform,
+    required String reflectionDate,
+    String? reflectionSnippet,
+  }) async {
+    try {
+      await _db.collection('socialShares').add({
+        'userId': uid,
+        'platform': platform,
+        'reflectionDate': reflectionDate,
+        'reflectionSnippet': reflectionSnippet?.substring(0, 200),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return const ServiceResult(success: true);
+    } catch (e) {
+      return ServiceResult(success: false, error: e.toString());
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getSportsTrendingByCountry(
+    String country, {
+    int limit = 10,
+  }) async {
+    try {
+      final c = country.toUpperCase().replaceAll(RegExp(r'[^A-Z]'), '');
+      if (c.length != 2) return [];
+      final snap = await _db
+          .collection('podSportsTrending')
+          .where('country', isEqualTo: c)
+          .orderBy('trendingScore', descending: true)
+          .limit(limit)
+          .get();
+      return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // --- Crew sphere ---
+
+  Future<CrewSphereResult> getUserCrewSphere(String uid) async {
+    try {
+      final podsSnap = await _db.collection('users/$uid/pods').get();
+      for (final podDoc in podsSnap.docs) {
+        final sphereId = podDoc.data()['sphereId'] as String?;
+        if (sphereId == null) continue;
+        final sphereSnap = await _db.doc('crewSpheres/$sphereId').get();
+        if (!sphereSnap.exists) continue;
+        final sphere = sphereSnap.data()!;
+        final members = sphere['members'];
+        if (members is List && members.contains(uid)) {
+          return CrewSphereResult(
+            success: true,
+            sphereId: sphereId,
+            sphere: sphere,
+          );
+        }
+      }
+      final spheresSnap = await _db
+          .collection('crewSpheres')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      for (final doc in spheresSnap.docs) {
+        final sphere = doc.data();
+        final members = sphere['members'];
+        if (members is List && members.contains(uid)) {
+          return CrewSphereResult(
+            success: true,
+            sphereId: doc.id,
+            sphere: sphere,
+          );
+        }
+      }
+      return const CrewSphereResult(success: false);
+    } catch (e) {
+      return CrewSphereResult(success: false, error: e.toString());
+    }
+  }
+
+  Future<void> syncUserPodDocuments(String uid) async {
+    try {
+      final spheresSnap = await _db
+          .collection('crewSpheres')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .get();
+      for (final doc in spheresSnap.docs) {
+        final sphere = doc.data();
+        final members = sphere['members'];
+        if (members is! List || !members.contains(uid)) continue;
+        final podRef = _db.doc('users/$uid/pods/${doc.id}');
+        final podSnap = await podRef.get();
+        if (!podSnap.exists) {
+          await podRef.set({
+            'name': "Crew's Sphere",
+            'sphereId': doc.id,
+            'members': members,
+            'createdAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<String?> saveCrewSphereMessage(
+    String sphereId,
+    String senderUid, {
+    required String senderName,
+    required String message,
+    String? image,
+  }) async {
+    try {
+      final ref = _db.collection('crewSpheres/$sphereId/messages').doc();
+      await ref.set({
+        'id': ref.id,
+        'senderUid': senderUid,
+        'senderName': senderName,
+        'message': message,
+        if (image != null) 'image': image,
+        'timestamp': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return ref.id;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Stream<List<CrewMessage>> watchCrewSphereMessages(String sphereId) {
+    return _db
+        .collection('crewSpheres/$sphereId/messages')
+        .orderBy('timestamp')
+        .snapshots()
+        .map((snap) {
+      return snap.docs.map((d) {
+        final data = d.data();
+        DateTime? ts;
+        final raw = data['timestamp'] ?? data['createdAt'];
+        if (raw is Timestamp) ts = raw.toDate();
+        return CrewMessage.fromMap(d.id, {
+          ...data,
+          if (ts != null) 'timestamp': ts,
+        });
+      }).toList();
+    });
+  }
+
+  // --- Mood & emotional balance ---
+
+  Future<List<MoodDayData>> getMoodChartData(String uid, {int days = 7}) async {
+    final result = <MoodDayData>[];
+    final todayId = _dateIdForOffset(0);
+    final parts = todayId.split('-').map(int.parse).toList();
+    for (var i = days - 1; i >= 0; i--) {
+      final d = DateTime(parts[0], parts[1], parts[2]).subtract(Duration(days: i));
+      final dateId =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final snap =
+          await _db.doc('users/$uid/days/$dateId/moodChart/daily').get();
+      final label = _shortDay(d);
+      if (snap.exists) {
+        final data = snap.data()!;
+        result.add(MoodDayData(
+          date: dateId,
+          dayLabel: label,
+          happiness: _toDouble(data['happiness']),
+          anxiety: _toDouble(data['anxiety']),
+          stress: _toDouble(data['stress']),
+          energy: _toDouble(data['energy']),
+        ));
+      } else if (days == 7) {
+        result.add(MoodDayData(date: dateId, dayLabel: label));
+      }
+    }
+    return result;
+  }
+
+  Future<List<EmotionalBalanceDay>> getEmotionalBalanceData(
+    String uid, {
+    int days = 7,
+  }) async {
+    final result = <EmotionalBalanceDay>[];
+    final todayId = _dateIdForOffset(0);
+    final parts = todayId.split('-').map(int.parse).toList();
+    for (var i = days - 1; i >= 0; i--) {
+      final d = DateTime(parts[0], parts[1], parts[2]).subtract(Duration(days: i));
+      final dateId =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final snap = await _db
+          .doc('users/$uid/days/$dateId/emotionalBalance/daily')
+          .get();
+      if (snap.exists) {
+        final data = snap.data()!;
+        result.add(EmotionalBalanceDay(
+          date: dateId,
+          dayLabel: _shortDay(d),
+          positive: _toDouble(data['positive']),
+          negative: _toDouble(data['negative']),
+          neutral: _toDouble(data['neutral']),
+        ));
+      }
+    }
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> getRecentReflections(
+    String uid, {
+    int limit = 14,
+  }) async {
+    try {
+      final daysSnap = await _db.collection('users/$uid/days').get();
+      final reflections = <Map<String, dynamic>>[];
+      for (final dayDoc in daysSnap.docs) {
+        final refSnap = await _db
+            .doc('users/$uid/days/${dayDoc.id}/reflection/meta')
+            .get();
+        if (refSnap.exists) {
+          final data = refSnap.data()!;
+          reflections.add({
+            'dateId': dayDoc.id,
+            'summary': data['summary'],
+            'mood': data['mood'],
+          });
+        }
+      }
+      reflections.sort((a, b) => (b['dateId'] as String).compareTo(a['dateId'] as String));
+      return reflections.take(limit).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> incrementCommunityPostLike(String postId) async {
+    try {
+      await _db.doc('communityPosts/$postId').update({
+        'likes': FieldValue.increment(1),
+      });
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> updateUserMetadata(
+    String uid, {
+    String? displayName,
+    String? profilePicture,
+    bool? crewEnrolled,
+  }) async {
+    final payload = <String, dynamic>{};
+    if (displayName != null) payload['displayName'] = displayName;
+    if (profilePicture != null) payload['profilePicture'] = profilePicture;
+    if (crewEnrolled != null) payload['crewEnrolled'] = crewEnrolled;
+    if (payload.isEmpty) return;
+    await _db.doc('usersMetadata/$uid').set(payload, SetOptions(merge: true));
+  }
+
+  String _dateIdForOffset(int daysAgo) {
+    final ist = DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30));
+    final d = ist.subtract(Duration(days: daysAgo));
+    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  }
+
+  String _shortDay(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[d.month - 1]} ${d.day}';
+  }
+
+  double _toDouble(dynamic v) {
+    if (v is num) return v.toDouble();
+    return 0;
+  }
+
   Future<String?> uploadProfileImage(String uid, Uint8List bytes) async {
     try {
       final ref = _storage.ref().child('profilePictures/$uid.jpg');
@@ -336,6 +750,19 @@ class ReflectionResult {
   final bool success;
   final String? reflection;
   final Map<String, dynamic>? fullData;
+  final String? error;
+}
+
+class CrewSphereResult {
+  const CrewSphereResult({
+    required this.success,
+    this.sphereId,
+    this.sphere,
+    this.error,
+  });
+  final bool success;
+  final String? sphereId;
+  final Map<String, dynamic>? sphere;
   final String? error;
 }
 

@@ -217,6 +217,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ],
                     ),
+                    if (_reflection.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () => context.push(
+                          '/share-suggestions',
+                          extra: {'reflection': _reflection},
+                        ),
+                        icon: const Icon(Icons.share_outlined),
+                        label: const Text('Share reflection'),
+                      ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => context.push(
+                        '/chat?dateId=$dateId&whisper=1&fresh=1',
+                      ),
+                      icon: const Icon(Icons.visibility_off_outlined),
+                      label: const Text('Whisper session'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: HubColors.accentHighlight,
+                        side: const BorderSide(color: HubColors.accent),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -224,11 +245,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/chat?dateId=$dateId'),
-        backgroundColor: HubColors.accent,
-        icon: const Icon(Icons.add_comment),
-        label: const Text('New chat'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'whisper',
+            onPressed: () => context.push(
+              '/chat?dateId=$dateId&whisper=1&fresh=1',
+            ),
+            backgroundColor: HubColors.bgSecondary,
+            child: const Icon(Icons.visibility_off, color: HubColors.accent),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'chat',
+            onPressed: () => context.push('/chat?dateId=$dateId'),
+            backgroundColor: HubColors.accent,
+            icon: const Icon(Icons.add_comment),
+            label: const Text('New chat'),
+          ),
+        ],
       ),
     );
   }

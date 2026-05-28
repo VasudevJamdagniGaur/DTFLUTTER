@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/hub_colors.dart';
 import '../../core/utils/date_utils.dart';
@@ -13,7 +14,8 @@ class AllDayReflectionsScreen extends StatefulWidget {
 }
 
 class _AllDayReflectionsScreenState extends State<AllDayReflectionsScreen> {
-  List<Map<String, dynamic>> _days = [];
+  List<Map<String, dynamic>> _reflections = [];
+  bool _loading = true;
 
   @override
   void initState() {
@@ -24,8 +26,13 @@ class _AllDayReflectionsScreenState extends State<AllDayReflectionsScreen> {
   Future<void> _load() async {
     final user = authService.currentUser;
     if (user == null) return;
-    final days = await firestoreService.getAllChatDays(user.uid);
-    if (mounted) setState(() => _days = days);
+    final list = await firestoreService.getRecentReflections(user.uid, limit: 30);
+    if (mounted) {
+      setState(() {
+        _reflections = list;
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -37,28 +44,50 @@ class _AllDayReflectionsScreenState extends State<AllDayReflectionsScreen> {
         backgroundColor: HubColors.bg,
         foregroundColor: HubColors.text,
       ),
-      body: _days.isEmpty
+      body: _loading
           ? const Center(
-              child: Text(
-                'No reflection days yet.',
-                style: TextStyle(color: HubColors.textSecondary),
-              ),
+              child: CircularProgressIndicator(color: HubColors.accent),
             )
-          : ListView.builder(
-              itemCount: _days.length,
-              itemBuilder: (_, i) {
-                final d = _days[i];
-                final id = d['id'] as String? ?? d['date'] as String? ?? '';
-                return ListTile(
-                  title: Text(
-                    DeiteDateUtils.formatDateForDisplay(id),
-                    style: const TextStyle(color: HubColors.text),
+          : _reflections.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No reflections yet. Chat with Detea to create them.',
+                    style: TextStyle(color: HubColors.textSecondary),
                   ),
-                  trailing: const Icon(Icons.chevron_right,
-                      color: HubColors.textSecondary),
-                );
-              },
-            ),
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _reflections.length,
+                    itemBuilder: (_, i) {
+                      final r = _reflections[i];
+                      final dateId = r['dateId'] as String? ?? '';
+                      return Card(
+                        color: HubColors.bgSecondary,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: ListTile(
+                          title: Text(
+                            DeiteDateUtils.formatDateForDisplay(dateId),
+                            style: const TextStyle(
+                              color: HubColors.text,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          subtitle: Text(
+                            r['summary'] as String? ?? '',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: HubColors.textSecondary),
+                          ),
+                          trailing: const Icon(Icons.chevron_right,
+                              color: HubColors.textSecondary),
+                          onTap: () => context.push('/chat?dateId=$dateId'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
     );
   }
 }
