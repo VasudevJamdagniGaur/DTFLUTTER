@@ -1,0 +1,308 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USERS METADATA
+    match /usersMetadata/{userId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USER DAYS
+    match /users/{userId}/days/{dateId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USER CHATS
+    match /users/{userId}/chats/{chatId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USER FOLLOWING (Community – Following tab)
+    match /users/{userId}/following/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // REFLECTIONS
+    match /users/{userId}/days/{dateId}/reflection/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/days/{dateId}/reflection/meta {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // OLD REFLECTION STRUCTURE
+    match /users/{userId}/dayReflections/{dateId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // POD REFLECTIONS
+    match /users/{userId}/podReflections/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USER MESSAGES
+    match /users/{userId}/days/{dateId}/messages/{messageId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/chats/{chatId}/messages/{messageId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // MOOD CHART
+    match /users/{userId}/days/{dateId}/moodChart/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // EMOTIONAL BALANCE
+    match /users/{userId}/days/{dateId}/emotionalBalance/{document=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // USER EVENTS (analytics / feed signals – CommunityPage impression tracking)
+    match /user_events/{eventId} {
+      allow create: if request.auth != null && request.resource.data.user_id == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // REFLECTION IMAGE CACHE (load from Firebase instead of re-calling Gemini)
+    // Allow read when doc does not exist (resource == null) or user owns the doc
+    match /reflectionImageCache/{docId} {
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // COMMUNITY POSTS
+    match /communityPosts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+
+      allow update, delete: if request.auth != null &&
+        (resource.data.userId == request.auth.uid ||
+         resource.data.authorId == request.auth.uid);
+
+      match /likes/{likeId} {
+        allow read: if request.auth != null;
+
+        allow create: if request.auth != null &&
+          request.resource.data.userId == request.auth.uid;
+
+        allow update: if request.auth != null &&
+          likeId == request.auth.uid &&
+          request.resource.data.userId == request.auth.uid;
+
+        allow delete: if request.auth != null &&
+          likeId == request.auth.uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+
+        allow create: if request.auth != null &&
+          (request.resource.data.userId == request.auth.uid ||
+           request.resource.data.authorId == request.auth.uid);
+
+        allow update, delete: if request.auth != null &&
+          (resource.data.userId == request.auth.uid ||
+           resource.data.authorId == request.auth.uid);
+
+        match /replies/{replyId} {
+          allow read: if request.auth != null;
+
+          allow create: if request.auth != null &&
+            (request.resource.data.userId == request.auth.uid ||
+             request.resource.data.authorId == request.auth.uid);
+
+          allow update, delete: if request.auth != null &&
+            (resource.data.userId == request.auth.uid ||
+             resource.data.authorId == request.auth.uid);
+        }
+      }
+    }
+
+    // CREW SPHERES
+    match /crewSpheres/{sphereId} {
+      allow list: if request.auth != null;
+
+      allow get: if request.auth != null &&
+        (request.auth.uid == resource.data.creatorUid ||
+         (resource.data.members != null &&
+          request.auth.uid in resource.data.members));
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.creatorUid;
+
+      allow update: if request.auth != null &&
+        (request.auth.uid == resource.data.creatorUid ||
+         (resource.data.members != null &&
+          request.auth.uid in resource.data.members));
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null &&
+          (request.auth.uid ==
+           get(/databases/$(database)/documents/crewSpheres/$(sphereId)).data.creatorUid ||
+           request.auth.uid in
+           get(/databases/$(database)/documents/crewSpheres/$(sphereId)).data.members);
+
+        allow create: if request.auth != null &&
+          request.resource.data.senderUid == request.auth.uid &&
+          (request.auth.uid ==
+           get(/databases/$(database)/documents/crewSpheres/$(sphereId)).data.creatorUid ||
+           request.auth.uid in
+           get(/databases/$(database)/documents/crewSpheres/$(sphereId)).data.members);
+
+        allow update, delete: if request.auth != null &&
+          resource.data.senderUid == request.auth.uid;
+      }
+    }
+
+    // POSTS
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // SHARE HISTORY
+    match /shareHistory/{shareId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // SOCIAL SHARES (My Presence – platform badges, share records)
+    match /socialShares/{shareId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // USER POSTS
+    match /userPosts/{userId}/posts/{postId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.userId == request.auth.uid;
+
+      allow update, delete: if request.auth != null &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // Hub → Trending news (engagement + time-decayed trendingScore, country + category)
+    // Public read: Hub/Trending must work before auth finishes hydrating; URLs are already public.
+    match /news/{newsId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.title is string
+        && request.resource.data.url is string
+        && request.resource.data.source is string
+        && request.resource.data.category is string
+        && request.resource.data.country is string
+        && request.resource.data.country.size() == 2
+        && (request.resource.data.city == null || request.resource.data.city is string)
+        && request.resource.data.likes == 0
+        && request.resource.data.shares == 0
+        && request.resource.data.views == 0
+        && request.resource.data.trendingScore is number
+        && request.resource.data.trendingScore >= 0
+        && request.resource.data.trendingScore <= 10000000
+        && (request.resource.data.image == null || request.resource.data.image is string)
+        && request.resource.data.createdAt is timestamp;
+
+      allow update: if request.auth != null
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.url == resource.data.url
+        && request.resource.data.source == resource.data.source
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.country == resource.data.country
+        && request.resource.data.city == resource.data.city
+        && request.resource.data.image == resource.data.image
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.likes >= resource.data.likes
+        && request.resource.data.likes <= resource.data.likes + 5
+        && request.resource.data.shares >= resource.data.shares
+        && request.resource.data.shares <= resource.data.shares + 5
+        && request.resource.data.views >= resource.data.views
+        && request.resource.data.views <= resource.data.views + 12
+        && request.resource.data.trendingScore is number
+        && request.resource.data.trendingScore >= 0
+        && request.resource.data.trendingScore <= 10000000;
+    }
+
+    // Sports pod — engagement-ranked trending (likes/shares/views → trendingScore), country + optional city
+    match /podSportsTrending/{newsId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.title is string
+        && request.resource.data.url is string
+        && request.resource.data.source is string
+        && request.resource.data.country is string
+        && request.resource.data.country.size() == 2
+        && (request.resource.data.city == null || request.resource.data.city is string)
+        && request.resource.data.likes == 0
+        && request.resource.data.shares == 0
+        && request.resource.data.views == 0
+        && request.resource.data.trendingScore == 0
+        && (request.resource.data.image == null || request.resource.data.image is string)
+        && (request.resource.data.category == null || request.resource.data.category is string)
+        && request.resource.data.createdAt is timestamp;
+
+      allow update: if request.auth != null
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.url == resource.data.url
+        && request.resource.data.source == resource.data.source
+        && request.resource.data.country == resource.data.country
+        && request.resource.data.image == resource.data.image
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'shares', 'views', 'trendingScore'])
+        && request.resource.data.likes >= resource.data.likes
+        && request.resource.data.likes <= resource.data.likes + 3
+        && request.resource.data.shares >= resource.data.shares
+        && request.resource.data.shares <= resource.data.shares + 3
+        && request.resource.data.views >= resource.data.views
+        && request.resource.data.views <= resource.data.views + 8
+        && request.resource.data.trendingScore ==
+          (request.resource.data.likes * 3 + request.resource.data.shares * 5 + request.resource.data.views);
+    }
+
+    // Account deletion requests — written only by Cloud Functions (Admin SDK)
+    match /deleteRequests/{requestId} {
+      allow read, write: if false;
+    }
+  }
+}

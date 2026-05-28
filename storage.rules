@@ -1,0 +1,21 @@
+rules_version = '2';
+// Post and reflection images: read allowed so feed can show images; write only for own path
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /posts/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /reflectionCache/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /newsShareCache/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
