@@ -12,5 +12,12 @@ if (-not (Test-Path "android")) {
     flutter create . --org com.deite --project-name deite
 }
 
+$secrets = "lib/config/firebase_secrets.dart"
+$example = "lib/config/firebase_secrets.example.dart"
+if (-not (Test-Path $secrets) -and (Test-Path $example)) {
+    Copy-Item $example $secrets
+    Write-Host "Created $secrets — add your Firebase API key from Firebase Console."
+}
+
 flutter pub get
 Write-Host "Done. Run: flutter run --dart-define=BACKEND_URL=https://detea-backend.onrender.com"

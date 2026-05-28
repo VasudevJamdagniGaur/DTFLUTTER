@@ -58,3 +58,6 @@ _source_rn/
 # Env
 .env
 .env.*
+
+# Firebase API key (copy from firebase_secrets.example.dart)
+lib/config/firebase_secrets.dart

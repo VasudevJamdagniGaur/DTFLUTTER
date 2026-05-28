@@ -61,7 +61,7 @@ flutter run --dart-define=BACKEND_URL=https://detea-backend.onrender.com
 3. For iOS, add `GoogleService-Info.plist` → `ios/Runner/`
 4. Or run: `dart pub global activate flutterfire_cli && flutterfire configure`
 
-Web/desktop use `lib/config/firebase_options.dart` (from the original web config).
+Firebase Web API key: copy `lib/config/firebase_secrets.example.dart` → `firebase_secrets.dart` (gitignored) or use `--dart-define=FIREBASE_API_KEY=...`. Other Firebase fields stay in `firebase_options.dart`.
 
 ### Google Sign-In
 

@@ -34,12 +34,23 @@ dart pub global activate flutterfire_cli
 flutterfire configure
 ```
 
-## 4. Run
+## 4. Firebase API key (required)
+
+The Web API key is **not** stored in git.
+
+```powershell
+Copy-Item lib/config/firebase_secrets.example.dart lib/config/firebase_secrets.dart
+# Edit firebase_secrets.dart and set firebaseApiKey from Firebase Console
+```
+
+Or pass at run time: `--dart-define=FIREBASE_API_KEY=your_key`
+
+## 5. Run
 
 ```powershell
 flutter run --dart-define=BACKEND_URL=https://detea-backend.onrender.com
 ```
 
-## 5. Release signing (optional)
+## 6. Release signing (optional)
 
 Match the original Capacitor app SHA-1 in Firebase for Google Sign-In on release builds.
