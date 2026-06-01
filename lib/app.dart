@@ -23,8 +23,12 @@ class _DeiteAppState extends State<DeiteApp> {
       child: MaterialApp.router(
         title: 'Deite',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        darkTheme: AppTheme.dark(),
+        theme: AppTheme.light().copyWith(
+          scaffoldBackgroundColor: const Color(0xFF131314),
+        ),
+        darkTheme: AppTheme.dark().copyWith(
+          scaffoldBackgroundColor: const Color(0xFF131314),
+        ),
         themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
         routerConfig: _router,
       ),

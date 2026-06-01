@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/hub_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/deite_logo_avatar.dart';
 import '../../widgets/space_background.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -101,37 +102,7 @@ class _SignupScreenState extends State<SignupScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 16),
-                Center(
-                  child: Container(
-                    width: 125,
-                    height: 125,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF121212),
-                      border: Border.all(
-                        color: const Color(0xFFA855F7).withValues(alpha: 0.3),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFFC084FC).withValues(alpha: 0.35),
-                          blurRadius: 24,
-                        ),
-                        BoxShadow(
-                          color:
-                              const Color(0xFF7E22CE).withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.favorite,
-                      size: 56,
-                      color: HubColors.accent,
-                    ),
-                  ),
-                ),
+                const Center(child: DeiteLogoAvatar(size: 125)),
                 const SizedBox(height: 32),
                 const Text(
                   'Create account',

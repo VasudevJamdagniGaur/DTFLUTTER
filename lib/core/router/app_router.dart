@@ -32,6 +32,7 @@ import '../../screens/reflections/share_suggestions_screen.dart';
 import '../../screens/wellbeing/emotional_wellbeing_screen.dart';
 import '../../widgets/deite_bottom_navigation.dart';
 import '../../widgets/deite_scaffold.dart';
+import 'route_transitions.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -40,14 +41,47 @@ GoRouter createAppRouter() {
     navigatorKey: rootNavigatorKey,
     initialLocation: '/',
     routes: [
-      GoRoute(path: '/', builder: (_, __) => const SplashScreen()),
-      GoRoute(path: '/landing', builder: (_, __) => const LandingScreen()),
-      GoRoute(path: '/welcome', builder: (_, __) => const WelcomeScreen()),
-      GoRoute(path: '/signup', builder: (_, __) => const SignupScreen()),
-      GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(
+        path: '/',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const SplashScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/landing',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const LandingScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/welcome',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const WelcomeScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/signup',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const SignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const LoginScreen(),
+        ),
+      ),
       GoRoute(
         path: '/signup/profile-details',
-        builder: (_, __) => const ProfileDetailsScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const ProfileDetailsScreen(),
+        ),
       ),
       ShellRoute(
         builder: (context, state, child) => DeiteScaffold(
@@ -57,57 +91,117 @@ GoRouter createAppRouter() {
         routes: [
           GoRoute(
             path: '/dashboard',
-            builder: (_, __) => const DashboardScreen(),
+            pageBuilder: (context, state) => noTransitionPage(
+              key: state.pageKey,
+              child: const DashboardScreen(),
+            ),
           ),
-          GoRoute(path: '/pod', builder: (_, __) => const PodScreen()),
+          GoRoute(
+            path: '/pod',
+            pageBuilder: (context, state) => noTransitionPage(
+              key: state.pageKey,
+              child: const PodScreen(),
+            ),
+          ),
           GoRoute(
             path: '/community',
-            builder: (_, __) => const CommunityScreen(),
+            pageBuilder: (context, state) => noTransitionPage(
+              key: state.pageKey,
+              child: const CommunityScreen(),
+            ),
           ),
           GoRoute(
             path: '/wellbeing',
-            builder: (_, __) => const EmotionalWellbeingScreen(),
+            pageBuilder: (context, state) => noTransitionPage(
+              key: state.pageKey,
+              child: const EmotionalWellbeingScreen(),
+            ),
           ),
         ],
       ),
-      GoRoute(path: '/pod/sports', builder: (_, __) => const PodSportsScreen()),
+      GoRoute(
+        path: '/pod/sports',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const PodSportsScreen(),
+        ),
+      ),
       GoRoute(
         path: '/pod/sports/topic/:topicId',
-        builder: (_, state) =>
-            PodSportsTopicScreen(topicId: state.pathParameters['topicId']!),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: PodSportsTopicScreen(
+            topicId: state.pathParameters['topicId']!,
+          ),
+        ),
       ),
       GoRoute(
         path: '/pod/explore/:section/:topicId',
-        builder: (_, state) => PodExploreTopicScreen(
-          section: state.pathParameters['section']!,
-          topicId: state.pathParameters['topicId']!,
+        pageBuilder: (context, state) {
+          final section = state.pathParameters['section']!;
+          final topicId = state.pathParameters['topicId']!;
+          return fadeTransitionPage(
+            key: state.pageKey,
+            child: PodExploreTopicScreen(
+              key: ValueKey('$section-$topicId'),
+              section: section,
+              topicId: topicId,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/pod/ai-tech',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const PodAiTechScreen(),
         ),
       ),
-      GoRoute(path: '/pod/ai-tech', builder: (_, __) => const PodAiTechScreen()),
       GoRoute(
         path: '/pod/entrepreneurship',
-        builder: (_, __) => const PodEntrepreneurshipScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const PodEntrepreneurshipScreen(),
+        ),
       ),
       GoRoute(
         path: '/pod/current-affairs',
-        builder: (_, __) => const PodCurrentAffairsScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const PodCurrentAffairsScreen(),
+        ),
       ),
-      GoRoute(path: '/pod/chat', builder: (_, __) => const PodGroupChatScreen()),
+      GoRoute(
+        path: '/pod/chat',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const PodGroupChatScreen(),
+        ),
+      ),
       GoRoute(
         path: '/pod/reflections',
-        builder: (_, __) => const PodReflectionsScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const PodReflectionsScreen(),
+        ),
       ),
       GoRoute(
         path: '/reflections',
-        builder: (_, __) => const AllDayReflectionsScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const AllDayReflectionsScreen(),
+        ),
       ),
       GoRoute(
         path: '/share-reflection',
-        builder: (_, __) => const ShareReflectionScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const ShareReflectionScreen(),
+        ),
       ),
       GoRoute(
         path: '/share-suggestions',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           String? reflection;
           NewsShareArticle? news;
           final extra = state.extra;
@@ -121,15 +215,18 @@ GoRouter createAppRouter() {
               );
             }
           }
-          return ShareSuggestionsScreen(
-            initialReflection: reflection,
-            newsArticle: news,
+          return fadeTransitionPage(
+            key: state.pageKey,
+            child: ShareSuggestionsScreen(
+              initialReflection: reflection,
+              newsArticle: news,
+            ),
           );
         },
       ),
       GoRoute(
         path: '/tea-feed',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           List<TeaItem>? items;
           var returnTo = '/dashboard';
           final extra = state.extra;
@@ -143,30 +240,55 @@ GoRouter createAppRouter() {
             final rt = extra['returnTo'];
             if (rt is String && rt.startsWith('/')) returnTo = rt;
           }
-          return TeaFeedScreen(initialItems: items, returnTo: returnTo);
+          return fadeTransitionPage(
+            key: state.pageKey,
+            child: TeaFeedScreen(initialItems: items, returnTo: returnTo),
+          );
         },
       ),
       GoRoute(
         path: '/help-improve-deite',
-        builder: (_, __) => const HelpImproveScreen(),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const HelpImproveScreen(),
+        ),
       ),
-      GoRoute(path: '/watchlist', builder: (_, __) => const WatchlistScreen()),
+      GoRoute(
+        path: '/watchlist',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const WatchlistScreen(),
+        ),
+      ),
       GoRoute(
         path: '/chat',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final q = state.uri.queryParameters;
-          return ChatScreen(
-            dateId: q['dateId'],
-            isWhisperMode: q['whisper'] == '1' || q['whisper'] == 'true',
-            isFreshSession: q['fresh'] == '1' || q['fresh'] == 'true',
+          return fadeTransitionPage(
+            key: state.pageKey,
+            child: ChatScreen(
+              dateId: q['dateId'],
+              isWhisperMode: q['whisper'] == '1' || q['whisper'] == 'true',
+              isFreshSession: q['fresh'] == '1' || q['fresh'] == 'true',
+            ),
           );
         },
       ),
-      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const ProfileScreen(),
+        ),
+      ),
       GoRoute(
         path: '/user/:userId',
-        builder: (_, state) =>
-            UserProfileScreen(userId: state.pathParameters['userId']!),
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: UserProfileScreen(
+            userId: state.pathParameters['userId']!,
+          ),
+        ),
       ),
     ],
   );
