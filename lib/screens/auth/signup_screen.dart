@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/hub_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/space_background.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -84,73 +85,141 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: HubColors.appBg,
+      backgroundColor: const Color(0xFF030308),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        elevation: 0,
         foregroundColor: HubColors.text,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Create account',
-              style: TextStyle(
-                color: HubColors.text,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
+      body: SpaceBackground(
+        nebulaCenterY: 0.38,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 16),
+                Center(
+                  child: Container(
+                    width: 125,
+                    height: 125,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF121212),
+                      border: Border.all(
+                        color: const Color(0xFFA855F7).withValues(alpha: 0.3),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFFC084FC).withValues(alpha: 0.35),
+                          blurRadius: 24,
+                        ),
+                        BoxShadow(
+                          color:
+                              const Color(0xFF7E22CE).withValues(alpha: 0.4),
+                          blurRadius: 20,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.favorite,
+                      size: 56,
+                      color: HubColors.accent,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                const Text(
+                  'Create account',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: HubColors.text,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: _name,
+                  style: const TextStyle(color: HubColors.text),
+                  decoration: InputDecoration(
+                    hintText: 'Display name',
+                    filled: true,
+                    fillColor: Colors.black.withValues(alpha: 0.35),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _email,
+                  keyboardType: TextInputType.emailAddress,
+                  style: const TextStyle(color: HubColors.text),
+                  decoration: InputDecoration(
+                    hintText: 'Email',
+                    filled: true,
+                    fillColor: Colors.black.withValues(alpha: 0.35),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _password,
+                  obscureText: true,
+                  style: const TextStyle(color: HubColors.text),
+                  decoration: InputDecoration(
+                    hintText: 'Password (6+ chars)',
+                    filled: true,
+                    fillColor: Colors.black.withValues(alpha: 0.35),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _loading ? null : _signUp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFA855F7),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: _loading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Sign up'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _loading ? null : _google,
+                  icon: const Icon(Icons.g_mobiledata, size: 28),
+                  label: const Text('Continue with Google'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: HubColors.text,
+                    backgroundColor: Colors.white.withValues(alpha: 0.92),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.push('/login'),
+                  child: const Text('Already have an account? Log in'),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _name,
-              style: const TextStyle(color: HubColors.text),
-              decoration: const InputDecoration(hintText: 'Display name'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              style: const TextStyle(color: HubColors.text),
-              decoration: const InputDecoration(hintText: 'Email'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              style: const TextStyle(color: HubColors.text),
-              decoration: const InputDecoration(hintText: 'Password (6+ chars)'),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: const TextStyle(color: Colors.redAccent)),
-            ],
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loading ? null : _signUp,
-              child: _loading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Sign up'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _loading ? null : _google,
-              icon: const Icon(Icons.g_mobiledata, size: 28),
-              label: const Text('Continue with Google'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: HubColors.text,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.push('/login'),
-              child: const Text('Already have an account? Log in'),
-            ),
-          ],
+          ),
         ),
       ),
     );
