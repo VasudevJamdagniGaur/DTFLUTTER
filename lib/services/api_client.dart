@@ -22,11 +22,12 @@ class ApiClient {
 
     http.Response res;
     try {
-      res = await _client.send(
-        http.Request(method, url)
-          ..headers['Content-Type'] = 'application/json'
-          ..body = body != null ? jsonEncode(body) : null,
-      ).then(http.Response.fromStream);
+      final request = http.Request(method, url)
+        ..headers['Content-Type'] = 'application/json';
+      if (body != null) {
+        request.body = jsonEncode(body);
+      }
+      res = await _client.send(request).then(http.Response.fromStream);
     } catch (e) {
       throw Exception('Network error calling backend ($url): $e');
     }

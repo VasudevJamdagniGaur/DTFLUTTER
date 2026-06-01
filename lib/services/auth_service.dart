@@ -173,20 +173,22 @@ class GoogleSignInResult {
     this.error,
   });
 
-  const GoogleSignInResult.success({
-    required this.isNewUser,
+  factory GoogleSignInResult.success({
+    required bool isNewUser,
     String? uid,
     String? email,
     String? displayName,
     String? photoURL,
-  }) : this(
-          success: true,
-          isNewUser: isNewUser,
-          uid: uid,
-          email: email,
-          displayName: displayName,
-          photoURL: photoURL,
-        );
+  }) {
+    return GoogleSignInResult(
+      success: true,
+      isNewUser: isNewUser,
+      uid: uid,
+      email: email,
+      displayName: displayName,
+      photoURL: photoURL,
+    );
+  }
 
   const GoogleSignInResult.failure(String error)
       : this(success: false, error: error);

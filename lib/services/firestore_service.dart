@@ -99,8 +99,9 @@ class FirestoreService {
     try {
       final ref = _db.doc('users/$uid/following/following');
       final snap = await ref.get();
-      final existing = snap.exists && snap.data()?['followingIds'] is List
-          ? List<String>.from(snap.data!['followingIds'] as List)
+      final snapData = snap.data();
+      final existing = snap.exists && snapData?['followingIds'] is List
+          ? List<String>.from(snapData!['followingIds'] as List)
           : <String>[];
       if (existing.contains(targetUid)) return true;
       await ref.set({
@@ -116,8 +117,9 @@ class FirestoreService {
     try {
       final ref = _db.doc('users/$uid/following/following');
       final snap = await ref.get();
-      final existing = snap.exists && snap.data()?['followingIds'] is List
-          ? List<String>.from(snap.data!['followingIds'] as List)
+      final snapData = snap.data();
+      final existing = snap.exists && snapData?['followingIds'] is List
+          ? List<String>.from(snapData!['followingIds'] as List)
           : <String>[];
       await ref.set({
         'followingIds': existing.where((id) => id != targetUid).toList(),

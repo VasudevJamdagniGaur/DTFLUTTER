@@ -14,7 +14,7 @@ class HubNewsService {
     AuthService? auth,
     http.Client? client,
   })  : _db = firestore ?? FirebaseFirestore.instance,
-        _firestore = fs ?? firestoreService,
+        _fs = fs ?? firestoreService,
         _auth = auth ?? authService,
         _client = client ?? http.Client();
 
