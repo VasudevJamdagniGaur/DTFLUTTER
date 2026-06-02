@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,23 +18,17 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   bool _loaded = false;
   bool _googleLoading = false;
-  StreamSubscription<User?>? _authSub;
 
   @override
   void initState() {
     super.initState();
-    _authSub = authService.authStateChanges().listen((user) {
+    // Mirrors web: if user becomes authenticated, go to dashboard.
+    authService.authStateChanges().listen((user) {
       if (user != null && mounted) context.go('/dashboard');
     });
     Future<void>.delayed(const Duration(milliseconds: 50), () {
       if (mounted) setState(() => _loaded = true);
     });
-  }
-
-  @override
-  void dispose() {
-    _authSub?.cancel();
-    super.dispose();
   }
 
   Future<void> _google() async {
@@ -75,61 +66,62 @@ class _SignupScreenState extends State<SignupScreen> {
         duration: const Duration(milliseconds: 700),
         child: SpaceBackground(
           nebulaCenterY: 0.38,
-          child: Column(
-            children: [
-              Expanded(
-                flex: 11,
-                child: Center(
-                  child: AnimatedScale(
-                    scale: _loaded ? 1 : 0.9,
-                    duration: const Duration(milliseconds: 1000),
-                    curve: Curves.easeOut,
-                    child: AnimatedOpacity(
-                      opacity: _loaded ? 1 : 0,
+          child: SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: AnimatedScale(
+                      scale: _loaded ? 1 : 0.9,
                       duration: const Duration(milliseconds: 1000),
-                      child: const DeiteLogoAvatar(size: 125),
+                      curve: Curves.easeOut,
+                      child: AnimatedOpacity(
+                        opacity: _loaded ? 1 : 0,
+                        duration: const Duration(milliseconds: 1000),
+                        child: const DeiteLogoAvatar(size: 124),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              AnimatedSlide(
-                offset: _loaded ? Offset.zero : const Offset(0, 0.08),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOut,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    24,
-                    0,
-                    24,
-                    28 + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 350),
-                        child: GoogleSignInButton(
-                          loading: _googleLoading,
-                          onPressed: _google,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      TextButton(
-                        onPressed: () => context.go('/login'),
-                        child: const Text(
-                          'Log in with email and password',
-                          style: TextStyle(
-                            color: Color(0xF2FFFFFF),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                AnimatedSlide(
+                  offset: _loaded ? Offset.zero : const Offset(0, 0.08),
+                  duration: const Duration(milliseconds: 700),
+                  curve: Curves.easeOut,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 350),
+                            child: GoogleSignInButton(
+                              loading: _googleLoading,
+                              onPressed: _google,
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 14),
+                          TextButton(
+                            onPressed: () => context.go('/login'),
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  Colors.white.withValues(alpha: 0.95),
+                              textStyle: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            child: const Text('Log in with email and password'),
+                          ),
+                          SizedBox(height: MediaQuery.paddingOf(context).bottom),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

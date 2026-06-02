@@ -4,9 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/assets/app_assets.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/auth_starfield_background.dart';
+import '../../widgets/deite_logo_avatar.dart';
 
 /// Login — port of `LoginPage.js` (email/password + forgot password).
 class LoginScreen extends StatefulWidget {
@@ -107,20 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   constraints: const BoxConstraints(maxWidth: 400),
                   child: Column(
                     children: [
-                      ClipOval(
-                        child: Image.asset(
-                          AppAssets.deteaIcon,
-                          width: 72,
-                          height: 72,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Image.asset(
-                            AppAssets.deiteLogo,
-                            width: 72,
-                            height: 72,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
+                      const DeiteLogoAvatar(size: 72),
                       const SizedBox(height: 32),
                       const Text(
                         'Log in',
