@@ -6,13 +6,10 @@ import 'firebase_secrets.dart';
 
 /// Firebase config for project `deitedatabase`.
 ///
-/// Android values must match `android/app/google-services.json`
-/// (package `therapist.deite.app`). Web key comes from [firebase_secrets.dart].
+/// Android uses the **web API key + authDomain** (same as the Capacitor/React app)
+/// so reCAPTCHA can reach `deitedatabase.firebaseapp.com`. The Android [appId]
+/// still comes from `google-services.json`.
 class DefaultFirebaseOptions {
-  /// Android API key from `google-services.json` (not the web key).
-  static const String androidApiKey =
-      'AIzaSyB_w5hWIP5L5Bhg5Iqju4oZq5fJdT5Kkik';
-
   static const String androidAppId =
       '1:300613626896:android:96b25a5c6549a45307ae95';
 
@@ -51,11 +48,13 @@ class DefaultFirebaseOptions {
         measurementId: 'G-CRK45CXML7',
       );
 
+  /// Web key + authDomain (reCAPTCHA) with Android app id (google-services).
   static FirebaseOptions get android => FirebaseOptions(
-        apiKey: androidApiKey,
+        apiKey: _webApiKey,
         appId: androidAppId,
         messagingSenderId: '300613626896',
         projectId: 'deitedatabase',
+        authDomain: 'deitedatabase.firebaseapp.com',
         storageBucket: 'deitedatabase.firebasestorage.app',
       );
 
