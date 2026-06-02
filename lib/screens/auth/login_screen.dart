@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart' show User;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -64,11 +65,17 @@ class _LoginScreenState extends State<LoginScreen> {
     if (result.success) {
       context.go('/dashboard');
     } else {
+      if (result.underlyingError != null) {
+        debugPrint('Login failed underlying: ${result.underlyingError}');
+      }
       setState(() {
-        _error = result.code == 'invalid-credential' ||
+        final base = result.code == 'invalid-credential' ||
                 result.code == 'wrong-password'
             ? 'Invalid email or password. Please try again.'
             : result.error;
+        _error = kDebugMode && result.underlyingError != null
+            ? '$base\n[debug] ${result.underlyingError}'
+            : base;
       });
     }
   }

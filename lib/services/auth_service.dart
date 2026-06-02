@@ -2,9 +2,10 @@ import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart'
-    show debugPrint, kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show debugPrint, kDebugMode, kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'firebase_connectivity.dart';
 import 'firebase_identity_toolkit.dart';
 
 /// Web client ID from `google-services.json` (client_type 3) — required for Google Sign-In on Android.
@@ -23,10 +24,13 @@ class AuthService {
             );
 
   static String authErrorMessage(FirebaseAuthException e) {
+    debugPrint(
+      'AuthService.authErrorMessage: original FirebaseAuthException '
+      'code=${e.code} message=${e.message} plugin=${e.plugin}',
+    );
     switch (e.code) {
       case 'network-request-failed':
-        return 'Could not complete sign-in (Firebase security check failed). '
-            'Try again, use Google sign-in, or check emulator has Google Play.';
+        return 'Sign-in security check failed (reCAPTCHA). Trying alternate sign-in…';
       case 'invalid-credential':
       case 'wrong-password':
         return 'Invalid email or password. Please try again.';
@@ -68,7 +72,12 @@ class AuthService {
         displayName: user.displayName ?? displayName,
       );
     } on FirebaseAuthException catch (e) {
-      return AuthResult.failure(e.message ?? 'Sign up failed');
+      debugPrint('AuthService.signUpUser: $e');
+      return AuthResult.failure(
+        e.message ?? 'Sign up failed',
+        code: e.code,
+        underlyingError: e.toString(),
+      );
     }
   }
 
@@ -76,6 +85,30 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    // Android: HTTP sign-in first (same as web/Capacitor) — avoids native reCAPTCHA.
+    if (_preferIdentityToolkitFirst) {
+      final reachability = await FirebaseConnectivity.checkFirebaseReachability();
+      if (reachability != null) {
+        debugPrint('AuthService.signInUser: connectivity check failed: $reachability');
+        return AuthResult.failure(
+          reachability,
+          code: 'network-request-failed',
+          underlyingError: reachability,
+        );
+      }
+
+      final restResult = await _signInViaIdentityToolkit(email, password);
+      if (restResult.success) return restResult;
+      debugPrint(
+        'AuthService.signInUser: REST path failed code=${restResult.code} '
+        'underlying=${restResult.underlyingError}',
+      );
+      // Fall through to native only if REST failed for non-network reasons.
+      if (restResult.code == 'network-request-failed') {
+        return restResult;
+      }
+    }
+
     try {
       debugPrint('AuthService.signInUser: attempting native sign-in for $email');
       final cred = await _auth.signInWithEmailAndPassword(
@@ -92,49 +125,58 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       debugPrint(
         'AuthService.signInUser: FirebaseAuthException code=${e.code} '
-        'message=${e.message}',
+        'message=${e.message} full=$e',
       );
       if (e.code == 'network-request-failed' && _shouldTryIdentityToolkit) {
         final fallback = await _signInViaIdentityToolkit(email, password);
-        if (fallback != null) return fallback;
+        return fallback;
       }
       return AuthResult.failure(
         authErrorMessage(e),
         code: e.code,
+        underlyingError: e.toString(),
       );
     } catch (e, st) {
       debugPrint('AuthService.signInUser: unexpected error: $e');
       debugPrint('$st');
-      return AuthResult.failure(e.toString());
+      return AuthResult.failure(
+        e.toString(),
+        underlyingError: '$e',
+      );
     }
   }
 
-  bool get _shouldTryIdentityToolkit {
+  bool get _preferIdentityToolkitFirst {
     if (kIsWeb) return false;
-    if (defaultTargetPlatform == TargetPlatform.android) return true;
-    if (!kIsWeb && Platform.isAndroid) return true;
-    return false;
+    return defaultTargetPlatform == TargetPlatform.android ||
+        (!kIsWeb && Platform.isAndroid);
   }
 
-  /// HTTP sign-in (web/Capacitor path), then attach session to [FirebaseAuth].
-  Future<AuthResult?> _signInViaIdentityToolkit(
+  bool get _shouldTryIdentityToolkit => _preferIdentityToolkitFirst;
+
+  /// HTTP sign-in, then attach session to [FirebaseAuth].
+  Future<AuthResult> _signInViaIdentityToolkit(
     String email,
     String password,
   ) async {
-    debugPrint('AuthService: trying Identity Toolkit REST fallback');
+    debugPrint('AuthService: Identity Toolkit sign-in for $email');
     final rest = await FirebaseIdentityToolkit.signInWithPassword(
       email: email,
       password: password,
     );
     if (!rest.success || rest.idToken == null || rest.localId == null) {
-      debugPrint('AuthService: REST fallback failed: ${rest.error}');
+      debugPrint(
+        'AuthService: REST failed userMessage=${rest.error} '
+        'underlying=${rest.underlyingError}',
+      );
       return AuthResult.failure(
         rest.error ?? 'Sign in failed',
         code: rest.code,
+        underlyingError: rest.underlyingError,
       );
     }
 
-    debugPrint('AuthService: REST sign-in OK uid=${rest.localId}');
+    debugPrint('AuthService: REST OK uid=${rest.localId}, attaching Firebase session');
 
     try {
       final cred = await _auth.signInWithCredential(
@@ -145,7 +187,7 @@ class AuthService {
         ),
       );
       final user = cred.user!;
-      debugPrint('AuthService: session attached via credential uid=${user.uid}');
+      debugPrint('AuthService: session attached uid=${user.uid}');
       return AuthResult.success(
         uid: user.uid,
         email: user.email,
@@ -153,32 +195,22 @@ class AuthService {
       );
     } on FirebaseAuthException catch (e) {
       debugPrint(
-        'AuthService: credential attach failed (${e.code}), retrying native',
+        'AuthService: credential attach FirebaseAuthException code=${e.code} '
+        'message=${e.message} full=$e',
       );
-      try {
-        final cred = await _auth.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        final user = cred.user!;
-        return AuthResult.success(
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-        );
-      } catch (_) {
-        return AuthResult.failure(
-          'Signed in to Firebase servers but could not start app session. '
-          'Try Google sign-in or restart the app.',
-          code: e.code,
-        );
-      }
+      // Password was verified over HTTPS; native reCAPTCHA may still fail.
+      return AuthResult.failure(
+        'Your password is correct, but the app could not start a Firebase session '
+        '(${e.code}). Try Google sign-in, or restart the emulator with Google Play.',
+        code: e.code,
+        underlyingError: '${e.code}: ${e.message}',
+      );
     } catch (e, st) {
       debugPrint('AuthService: credential attach error: $e');
       debugPrint('$st');
       return AuthResult.failure(
-        'Signed in to Firebase servers but could not start app session. '
-        'Try Google sign-in or restart the app.',
+        'Your password is correct, but the app could not start a Firebase session.',
+        underlyingError: e.toString(),
       );
     }
   }
@@ -205,8 +237,10 @@ class AuthService {
         photoURL: user?.photoURL,
       );
     } on FirebaseAuthException catch (e) {
+      debugPrint('AuthService.signInWithGoogle: $e');
       return GoogleSignInResult.failure(e.message ?? 'Google sign-in failed');
     } catch (e) {
+      debugPrint('AuthService.signInWithGoogle: $e');
       return GoogleSignInResult.failure(e.toString());
     }
   }
@@ -219,6 +253,7 @@ class AuthService {
         message: 'Password reset email sent! Please check your inbox.',
       );
     } on FirebaseAuthException catch (e) {
+      debugPrint('AuthService.sendPasswordReset: $e');
       String msg = 'Failed to send password reset email.';
       if (e.code == 'user-not-found') {
         msg = 'No account found with this email address.';
@@ -227,7 +262,7 @@ class AuthService {
       } else if (e.code == 'too-many-requests') {
         msg = 'Too many requests. Please try again later.';
       }
-      return AuthResult.failure(msg);
+      return AuthResult.failure(msg, underlyingError: e.toString());
     }
   }
 
@@ -235,7 +270,8 @@ class AuthService {
     try {
       final methods = await _auth.fetchSignInMethodsForEmail(email);
       return methods.isNotEmpty;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('AuthService.checkEmailExists: $e');
       return false;
     }
   }
@@ -257,6 +293,7 @@ class AuthResult {
     this.error,
     this.code,
     this.message,
+    this.underlyingError,
   });
 
   const AuthResult.success({
@@ -270,8 +307,16 @@ class AuthResult {
           displayName: displayName,
         );
 
-  const AuthResult.failure(String error, {String? code})
-      : this(success: false, error: error, code: code);
+  const AuthResult.failure(
+    String error, {
+    String? code,
+    String? underlyingError,
+  }) : this(
+          success: false,
+          error: error,
+          code: code,
+          underlyingError: underlyingError,
+        );
 
   final bool success;
   final String? uid;
@@ -280,6 +325,8 @@ class AuthResult {
   final String? error;
   final String? code;
   final String? message;
+  /// Original exception / API detail (logged; shown in debug builds on login UI).
+  final String? underlyingError;
 }
 
 class GoogleSignInResult {

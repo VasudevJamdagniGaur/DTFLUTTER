@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'config/firebase_options.dart';
 import 'providers/theme_provider.dart';
+import 'services/firebase_connectivity.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +24,15 @@ Future<void> main() async {
         'Firebase initialized: project=${app.options.projectId} '
         'appId=${app.options.appId} authDomain=${app.options.authDomain}',
       );
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final reachability =
+            await FirebaseConnectivity.checkFirebaseReachability();
+        if (reachability != null) {
+          debugPrint('Firebase connectivity warning: $reachability');
+        } else {
+          debugPrint('Firebase connectivity: OK (googleapis.com reachable)');
+        }
+      }
     }
 
     // Helps some emulator / test flows; safe in debug only.

@@ -13,6 +13,10 @@ class DefaultFirebaseOptions {
   static const String androidAppId =
       '1:300613626896:android:96b25a5c6549a45307ae95';
 
+  /// From `android/app/google-services.json` — used as REST fallback API key.
+  static const String androidApiKeyFromGoogleServices =
+      'AIzaSyB_w5hWIP5L5Bhg5Iqju4oZq5fJdT5Kkik';
+
   static String get _webApiKey {
     const fromEnv = String.fromEnvironment('FIREBASE_API_KEY');
     if (fromEnv.isNotEmpty) return fromEnv;
