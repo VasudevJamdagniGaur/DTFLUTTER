@@ -2,13 +2,40 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:google_sign_in/google_sign_in.dart';
 
+/// Web client ID from `google-services.json` (client_type 3) — required for Google Sign-In on Android.
+const _googleWebClientId =
+    '300613626896-afgue1cj09n7mibt6b84t0qgjkc0avqk.apps.googleusercontent.com';
+
 /// Mirrors `src/services/authService.js`.
 class AuthService {
   AuthService({
     FirebaseAuth? auth,
     GoogleSignIn? googleSignIn,
   })  : _auth = auth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+        _googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              serverClientId: _googleWebClientId,
+            );
+
+  static String authErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'network-request-failed':
+        return 'Cannot reach Firebase. Use an emulator image with Google Play, '
+            'check internet, uninstall any old "com.example.deite" build, then '
+            'run: flutter clean && flutter run';
+      case 'invalid-credential':
+      case 'wrong-password':
+        return 'Invalid email or password. Please try again.';
+      case 'user-not-found':
+        return 'No account found with this email.';
+      case 'invalid-email':
+        return 'Invalid email address.';
+      case 'too-many-requests':
+        return 'Too many attempts. Try again later.';
+      default:
+        return e.message ?? 'Authentication failed (${e.code}).';
+    }
+  }
 
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
@@ -64,7 +91,7 @@ class AuthService {
         'message=${e.message}',
       );
       return AuthResult.failure(
-        e.message ?? 'Sign in failed',
+        authErrorMessage(e),
         code: e.code,
       );
     } catch (e, st) {

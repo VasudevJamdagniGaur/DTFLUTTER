@@ -5,10 +5,18 @@ import 'package:flutter/foundation.dart'
 import 'firebase_secrets.dart';
 
 /// Firebase config for project `deitedatabase`.
-/// API key is loaded from [firebase_secrets.dart] (gitignored) or
-/// `--dart-define=FIREBASE_API_KEY=...`.
+///
+/// Android values must match `android/app/google-services.json`
+/// (package `therapist.deite.app`). Web key comes from [firebase_secrets.dart].
 class DefaultFirebaseOptions {
-  static String get _apiKey {
+  /// Android API key from `google-services.json` (not the web key).
+  static const String androidApiKey =
+      'AIzaSyB_w5hWIP5L5Bhg5Iqju4oZq5fJdT5Kkik';
+
+  static const String androidAppId =
+      '1:300613626896:android:96b25a5c6549a45307ae95';
+
+  static String get _webApiKey {
     const fromEnv = String.fromEnvironment('FIREBASE_API_KEY');
     if (fromEnv.isNotEmpty) return fromEnv;
     if (firebaseApiKey.isNotEmpty) return firebaseApiKey;
@@ -34,7 +42,7 @@ class DefaultFirebaseOptions {
   }
 
   static FirebaseOptions get web => FirebaseOptions(
-        apiKey: _apiKey,
+        apiKey: _webApiKey,
         appId: '1:300613626896:web:eaa1c35b138a2a6c07ae95',
         messagingSenderId: '300613626896',
         projectId: 'deitedatabase',
@@ -44,8 +52,8 @@ class DefaultFirebaseOptions {
       );
 
   static FirebaseOptions get android => FirebaseOptions(
-        apiKey: _apiKey,
-        appId: '1:300613626896:web:eaa1c35b138a2a6c07ae95',
+        apiKey: androidApiKey,
+        appId: androidAppId,
         messagingSenderId: '300613626896',
         projectId: 'deitedatabase',
         storageBucket: 'deitedatabase.firebasestorage.app',
