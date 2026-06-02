@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/hub_colors.dart';
+import '../../core/assets/app_assets.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/auth_starfield_background.dart';
 
+/// Login — port of `LoginPage.js` (email/password + forgot password).
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -15,13 +20,30 @@ class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _forgotEmail = TextEditingController();
+  bool _loaded = false;
   bool _loading = false;
   String? _error;
   bool _showForgot = false;
   bool _forgotSent = false;
+  StreamSubscription<User?>? _authSub;
+
+  static const _inputFill = Color(0x0FFFFFFF);
+  static const _accentBlue = Color(0xFF8AB4F8);
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = authService.authStateChanges().listen((user) {
+      if (user != null && mounted) context.go('/dashboard');
+    });
+    Future<void>.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) setState(() => _loaded = true);
+    });
+  }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _email.dispose();
     _password.dispose();
     _forgotEmail.dispose();
@@ -45,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _error = result.code == 'invalid-credential' ||
                 result.code == 'wrong-password'
-            ? 'Invalid email or password.'
+            ? 'Invalid email or password. Please try again.'
             : result.error;
       });
     }
@@ -56,7 +78,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
       _loading = true;
     });
-    final result = await authService.sendPasswordReset(_forgotEmail.text.trim());
+    final result =
+        await authService.sendPasswordReset(_forgotEmail.text.trim());
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -72,71 +95,98 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF090A0F),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: _showForgot ? _buildForgot() : _buildLogin(),
+      body: AuthStarfieldBackground(
+        child: AnimatedOpacity(
+          opacity: _loaded ? 1 : 0,
+          duration: const Duration(milliseconds: 1000),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Column(
+                    children: [
+                      ClipOval(
+                        child: Image.asset(
+                          AppAssets.deteaIcon,
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                            AppAssets.deiteLogo,
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      const Text(
+                        'Log in',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Use your email and password',
+                        style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                      ),
+                      const SizedBox(height: 24),
+                      if (_showForgot) _buildForgot() else _buildLogin(),
+                      const SizedBox(height: 24),
+                      TextButton(
+                        onPressed: () => context.go('/signup'),
+                        child: const Text(
+                          'Back to sign up',
+                          style: TextStyle(color: _accentBlue, fontSize: 14),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/signup/email'),
+                        child: const Text(
+                          'Create account with email',
+                          style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 13),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildLogin() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Welcome back',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 24),
-        TextField(
-          controller: _email,
-          keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Email',
-            hintStyle: TextStyle(color: Colors.white54),
-          ),
-        ),
+        _input(_email, 'Email', keyboard: TextInputType.emailAddress),
         const SizedBox(height: 12),
-        TextField(
-          controller: _password,
-          obscureText: true,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            hintText: 'Password',
-            hintStyle: TextStyle(color: Colors.white54),
-          ),
-        ),
+        _input(_password, 'Password', obscure: true),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          Text(_error!, style: const TextStyle(color: Color(0xFFF87171), fontSize: 14)),
         ],
-        const SizedBox(height: 24),
-        ElevatedButton(
+        const SizedBox(height: 16),
+        _primaryButton(
+          label: _loading ? 'Signing in…' : 'Log in',
           onPressed: _loading ? null : _login,
-          child: _loading
-              ? const SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Log in'),
         ),
         TextButton(
-          onPressed: () => setState(() => _showForgot = true),
-          child: const Text('Forgot password?'),
-        ),
-        TextButton(
-          onPressed: () => context.push('/signup'),
-          child: const Text('Create account'),
+          onPressed: () => setState(() {
+            _showForgot = true;
+            _error = null;
+          }),
+          child: const Text(
+            'Forgot password?',
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+          ),
         ),
       ],
     );
@@ -144,39 +194,103 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildForgot() {
     if (_forgotSent) {
-      return const Text(
-        'Password reset email sent! Check your inbox.',
-        style: TextStyle(color: HubColors.accent),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _inputFill,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            const Text(
+              'Check your email for a link to reset your password.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
+            TextButton(
+              onPressed: () => setState(() {
+                _showForgot = false;
+                _forgotSent = false;
+                _forgotEmail.clear();
+              }),
+              child: const Text('Back to log in', style: TextStyle(color: _accentBlue)),
+            ),
+          ],
+        ),
       );
     }
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'Reset password',
-          style: TextStyle(color: Colors.white, fontSize: 24),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _forgotEmail,
-          keyboardType: TextInputType.emailAddress,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(hintText: 'Email'),
-        ),
+        _input(_forgotEmail, 'Email', keyboard: TextInputType.emailAddress),
         if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          const SizedBox(height: 12),
+          Text(_error!, style: const TextStyle(color: Color(0xFFF87171), fontSize: 14)),
         ],
         const SizedBox(height: 16),
-        ElevatedButton(
+        _primaryButton(
+          label: _loading ? 'Sending…' : 'Send reset link',
           onPressed: _loading ? null : _forgot,
-          child: const Text('Send reset link'),
         ),
         TextButton(
-          onPressed: () => setState(() => _showForgot = false),
-          child: const Text('Back to login'),
+          onPressed: () => setState(() {
+            _showForgot = false;
+            _error = null;
+          }),
+          child: const Text(
+            'Back to log in',
+            style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _input(
+    TextEditingController c,
+    String hint, {
+    TextInputType? keyboard,
+    bool obscure = false,
+  }) {
+    return TextField(
+      controller: c,
+      obscureText: obscure,
+      keyboardType: keyboard,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFF6B7280)),
+        filled: true,
+        fillColor: _inputFill,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _accentBlue),
+        ),
+      ),
+    );
+  }
+
+  Widget _primaryButton({required String label, VoidCallback? onPressed}) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _accentBlue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+        ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+      ),
     );
   }
 }

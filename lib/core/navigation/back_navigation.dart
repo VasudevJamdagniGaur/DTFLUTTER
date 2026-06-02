@@ -85,6 +85,7 @@ class BackNavigationHandler extends StatelessWidget {
         return;
 
       case '/login':
+      case '/signup/email':
         context.go('/signup');
         return;
 

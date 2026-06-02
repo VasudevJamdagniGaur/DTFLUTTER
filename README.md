@@ -1,6 +1,13 @@
 # Deite (Flutter)
 
-Flutter port of [VasudevJamdagniGaur/SocialMedia](https://github.com/VasudevJamdagniGaur/SocialMedia) — the **Deite** emotional wellness & social app (originally React + Capacitor + Firebase).
+Flutter port of the **Deite** app — aligned with the reference project at `C:\Users\coolb\Cursor Projects` (React + Capacitor + Firebase). Original repo: [SocialMedia](https://github.com/VasudevJamdagniGaur/SocialMedia).
+
+To refresh images from the reference web build:
+
+```powershell
+.\scripts\sync-assets-from-cursor.ps1
+flutter pub get
+```
 
 ## Features ported
 

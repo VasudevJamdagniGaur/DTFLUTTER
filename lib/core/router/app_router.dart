@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../screens/auth/landing_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/profile_details_screen.dart';
+import '../../screens/auth/signup_email_screen.dart';
 import '../../screens/auth/signup_screen.dart';
 import '../../screens/auth/splash_screen.dart';
 import '../../screens/auth/welcome_screen.dart';
@@ -67,6 +68,13 @@ GoRouter createAppRouter() {
         pageBuilder: (context, state) => fadeTransitionPage(
           key: state.pageKey,
           child: const SignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/signup/email',
+        pageBuilder: (context, state) => fadeTransitionPage(
+          key: state.pageKey,
+          child: const SignupEmailScreen(),
         ),
       ),
       GoRoute(

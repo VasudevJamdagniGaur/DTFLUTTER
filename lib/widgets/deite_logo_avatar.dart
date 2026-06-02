@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../core/assets/app_assets.dart';
+
 /// Circular Detea logo — mirrors landing/signup `DEITECIrc.webp` treatment.
 class DeiteLogoAvatar extends StatelessWidget {
   const DeiteLogoAvatar({super.key, this.size = 96});
 
   final double size;
-
-  static const _assetPath = 'assets/images/DEITECIrc.webp';
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class DeiteLogoAvatar extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Image.asset(
-        _assetPath,
+        AppAssets.deiteLogo,
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Icon(
           Icons.favorite,

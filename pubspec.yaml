@@ -40,3 +40,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/DEITECIrc.webp
+    - assets/images/crew-icon.png
+    - assets/images/Gemini_Generated_Image_enm22aenm22aenm2.png
+    - assets/images/DeteaIcon.png

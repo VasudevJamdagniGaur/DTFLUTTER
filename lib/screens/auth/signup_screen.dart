@@ -1,12 +1,16 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/theme/hub_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/deite_logo_avatar.dart';
+import '../../widgets/google_sign_in_button.dart';
 import '../../widgets/space_background.dart';
 
+/// Sign up — port of `SignupPage.js` (Google + link to email login).
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -15,56 +19,33 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  final _name = TextEditingController();
-  bool _loading = false;
-  String? _error;
+  bool _loaded = false;
+  bool _googleLoading = false;
+  StreamSubscription<User?>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSub = authService.authStateChanges().listen((user) {
+      if (user != null && mounted) context.go('/dashboard');
+    });
+    Future<void>.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) setState(() => _loaded = true);
+    });
+  }
 
   @override
   void dispose() {
-    _email.dispose();
-    _password.dispose();
-    _name.dispose();
+    _authSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _signUp() async {
-    setState(() {
-      _error = null;
-      _loading = true;
-    });
-    final result = await authService.signUpUser(
-      email: _email.text.trim(),
-      password: _password.text,
-      displayName: _name.text.trim(),
-    );
-    if (!mounted) return;
-    if (result.success && result.uid != null) {
-      await firestoreService.ensureUser(
-        result.uid!,
-        email: result.email,
-        displayName: result.displayName ?? _name.text.trim(),
-      );
-      if (!mounted) return;
-      setState(() => _loading = false);
-      context.go('/signup/profile-details');
-    } else {
-      setState(() {
-        _loading = false;
-        _error = result.error;
-      });
-    }
-  }
-
   Future<void> _google() async {
-    setState(() {
-      _error = null;
-      _loading = true;
-    });
+    if (_googleLoading) return;
+    setState(() => _googleLoading = true);
     final result = await authService.signInWithGoogle();
     if (!mounted) return;
-    setState(() => _loading = false);
+    setState(() => _googleLoading = false);
     if (result.success && result.uid != null) {
       await firestoreService.ensureUser(
         result.uid!,
@@ -78,8 +59,10 @@ class _SignupScreenState extends State<SignupScreen> {
       } else {
         context.go('/dashboard');
       }
-    } else {
-      setState(() => _error = result.error);
+    } else if (result.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error!)),
+      );
     }
   }
 
@@ -87,109 +70,66 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF030308),
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: HubColors.text,
-      ),
-      body: SpaceBackground(
-        nebulaCenterY: 0.38,
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 16),
-                const Center(child: DeiteLogoAvatar(size: 125)),
-                const SizedBox(height: 32),
-                const Text(
-                  'Create account',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: HubColors.text,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+      body: AnimatedOpacity(
+        opacity: _loaded ? 1 : 0,
+        duration: const Duration(milliseconds: 700),
+        child: SpaceBackground(
+          nebulaCenterY: 0.38,
+          child: Column(
+            children: [
+              Expanded(
+                flex: 11,
+                child: Center(
+                  child: AnimatedScale(
+                    scale: _loaded ? 1 : 0.9,
+                    duration: const Duration(milliseconds: 1000),
+                    curve: Curves.easeOut,
+                    child: AnimatedOpacity(
+                      opacity: _loaded ? 1 : 0,
+                      duration: const Duration(milliseconds: 1000),
+                      child: const DeiteLogoAvatar(size: 125),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 24),
-                TextField(
-                  controller: _name,
-                  style: const TextStyle(color: HubColors.text),
-                  decoration: InputDecoration(
-                    hintText: 'Display name',
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.35),
+              ),
+              AnimatedSlide(
+                offset: _loaded ? Offset.zero : const Offset(0, 0.08),
+                duration: const Duration(milliseconds: 700),
+                curve: Curves.easeOut,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    24,
+                    0,
+                    24,
+                    28 + MediaQuery.paddingOf(context).bottom,
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(color: HubColors.text),
-                  decoration: InputDecoration(
-                    hintText: 'Email',
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.35),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _password,
-                  obscureText: true,
-                  style: const TextStyle(color: HubColors.text),
-                  decoration: InputDecoration(
-                    hintText: 'Password (6+ chars)',
-                    filled: true,
-                    fillColor: Colors.black.withValues(alpha: 0.35),
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _error!,
-                    style: const TextStyle(color: Colors.redAccent),
-                  ),
-                ],
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _loading ? null : _signUp,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFA855F7),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: const StadiumBorder(),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 350),
+                        child: GoogleSignInButton(
+                          loading: _googleLoading,
+                          onPressed: _google,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextButton(
+                        onPressed: () => context.go('/login'),
+                        child: const Text(
+                          'Log in with email and password',
+                          style: TextStyle(
+                            color: Color(0xF2FFFFFF),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
                           ),
-                        )
-                      : const Text('Sign up'),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _loading ? null : _google,
-                  icon: const Icon(Icons.g_mobiledata, size: 28),
-                  label: const Text('Continue with Google'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: HubColors.text,
-                    backgroundColor: Colors.white.withValues(alpha: 0.92),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: const StadiumBorder(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                TextButton(
-                  onPressed: () => context.push('/login'),
-                  child: const Text('Already have an account? Log in'),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
