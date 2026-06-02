@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:google_sign_in/google_sign_in.dart';
 
 /// Mirrors `src/services/authService.js`.
@@ -45,21 +46,31 @@ class AuthService {
     required String password,
   }) async {
     try {
+      debugPrint('AuthService.signInUser: attempting sign-in for $email');
       final cred = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
       final user = cred.user!;
+      debugPrint('AuthService.signInUser: success uid=${user.uid}');
       return AuthResult.success(
         uid: user.uid,
         email: user.email,
         displayName: user.displayName,
       );
     } on FirebaseAuthException catch (e) {
+      debugPrint(
+        'AuthService.signInUser: FirebaseAuthException code=${e.code} '
+        'message=${e.message}',
+      );
       return AuthResult.failure(
         e.message ?? 'Sign in failed',
         code: e.code,
       );
+    } catch (e, st) {
+      debugPrint('AuthService.signInUser: unexpected error: $e');
+      debugPrint('$st');
+      return AuthResult.failure(e.toString());
     }
   }
 
